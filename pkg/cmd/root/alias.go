@@ -10,6 +10,7 @@ import (
 
 	"github.com/cli/cli/v2/internal/run"
 	"github.com/cli/cli/v2/internal/text"
+	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/findsh"
 	"github.com/cli/cli/v2/pkg/iostreams"
 	"github.com/google/shlex"
@@ -17,7 +18,7 @@ import (
 )
 
 func NewCmdShellAlias(io *iostreams.IOStreams, aliasName, aliasValue string) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   aliasName,
 		Short: fmt.Sprintf("Shell alias for %q", text.Truncate(80, aliasValue)),
 		RunE: func(c *cobra.Command, args []string) error {
@@ -45,10 +46,15 @@ func NewCmdShellAlias(io *iostreams.IOStreams, aliasName, aliasValue string) *co
 		},
 		DisableFlagParsing: true,
 	}
+	// Aliases are user-defined names and must not be reported as telemetry
+	// dimensions, since the name itself may be sensitive (e.g. project or
+	// organization names).
+	cmdutil.DisableTelemetry(cmd)
+	return cmd
 }
 
 func NewCmdAlias(io *iostreams.IOStreams, aliasName, aliasValue string) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   aliasName,
 		Short: fmt.Sprintf("Alias for %q", text.Truncate(80, aliasValue)),
 		RunE: func(c *cobra.Command, args []string) error {
@@ -66,6 +72,8 @@ func NewCmdAlias(io *iostreams.IOStreams, aliasName, aliasValue string) *cobra.C
 		},
 		DisableFlagParsing: true,
 	}
+	cmdutil.DisableTelemetry(cmd)
+	return cmd
 }
 
 // ExpandAlias processes argv to see if it should be rewritten according to a user's aliases.
