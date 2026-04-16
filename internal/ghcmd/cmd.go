@@ -51,10 +51,9 @@ func Main() exitCode {
 	cmdFactory := factory.New(buildVersion, string(agents.Detect()))
 	stderr := cmdFactory.IOStreams.ErrOut
 
-	cfg, err := cmdFactory.Config()
-	if err != nil {
-		fmt.Fprintf(stderr, "failed to load config: %s\n", err)
-		return exitError
+	cfg, cfgErr := cmdFactory.Config()
+	if cfgErr != nil {
+		fmt.Fprintf(stderr, "warning: failed to load config: %s\n", cfgErr)
 	}
 
 	additionalCommonDimensions := ghtelemetry.Dimensions{
@@ -64,10 +63,13 @@ func Main() exitCode {
 	}
 
 	var telemetryService ghtelemetry.Service
-	if os.Getenv("GH_PRIVATE_ENABLE_TELEMETRY") == "" {
+	switch {
+	case cfgErr != nil:
+		// Without a config we can't honour user telemetry preferences, so disable it to be safe.
 		telemetryService = &telemetry.NoOpService{}
-	} else {
-
+	case os.Getenv("GH_PRIVATE_ENABLE_TELEMETRY") == "":
+		telemetryService = &telemetry.NoOpService{}
+	default:
 		telemetryState := telemetry.ParseTelemetryState(cfg.Telemetry().Value)
 		switch telemetryState {
 		case telemetry.Disabled:
@@ -95,10 +97,12 @@ func Main() exitCode {
 	}
 	defer telemetryService.Flush()
 
-	var m migration.MultiAccount
-	if err := cfg.Migrate(m); err != nil {
-		fmt.Fprintln(stderr, err)
-		return exitError
+	if cfgErr == nil {
+		var m migration.MultiAccount
+		if err := cfg.Migrate(m); err != nil {
+			fmt.Fprintln(stderr, err)
+			return exitError
+		}
 	}
 
 	ctx := context.Background()
